@@ -2,26 +2,21 @@
 #include <Arduboy2.h>
 #include <stdlib.h>
 
-#define NUMBERSTARS 255
+#define NUMBERSTARS 100
 #define SCREENWIDTH 128
 #define SCREENHEIGHT 64
 
 #define NUMWARPEFFECTFRAMES 240
 #define NUMPLANETSURFACEPOINTS 25
 
-#define SHIPXPOS (SCREENWIDTH / 2) + 16
-#define SHIPYPOS (SCREENHEIGHT / 2) - 8
+#define SHIPXPOS (SCREENWIDTH / 2) - 16
+#define SHIPYPOS (SCREENHEIGHT / 2) - 16
 
 
-
-#define NUMGRASSPTS 24
-
-#define NUMTREES 1
-
-#define NUMTTILES 7
+#define NUMTREES 2
+#define NUMTILEBYTES 4
 
 Arduboy2 arduboy;
-
 
 Sprites sprite;
 
@@ -52,15 +47,14 @@ unsigned char const ship[] PROGMEM =
 
 
 
-unsigned char const tree[] PROGMEM =
+uint8_t protree[] =
 {
-  16, 16,
-  // 0
-  0x00, 0x00, 0x00, 0x00, 0xf8, 0x80, 0x80, 0xe0, 
-  0x38, 0x00, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 
-  0x7f, 0x08, 0x0c, 0x07, 0x00, 0x00, 0x00, 0x00, 
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
 };
+
 
 
 
@@ -76,61 +70,32 @@ unsigned char ttile[] = {
 
 
 
-
-uint8_t ttilex[NUMTTILES];
-uint8_t ttiley[NUMTTILES];
-
+uint8_t ttilecoords[NUMTILEBYTES];
 
 uint8_t numwarpcrystals;
 
 
-
-// Person
+// person
 unsigned char const person[] PROGMEM =
 {
-  16, 16,
+  8, 8,
   // 0
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x20, 0xa0, 
-  0xe0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x05, 
-  0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+  0x00, 0x00, 0x00, 0x99, 0xff, 0x00, 0x00, 0x00, 
   // 1
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 
-  0xb0, 0xe0, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x01, 0x03, 0x06, 0x03, 
-  0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+  0x00, 0x20, 0x40, 0x30, 0x18, 0x0a, 0x04, 0x00, 
   // 2
-  0x00, 0x00, 0x00, 0x00, 0x00, 0xc0, 0x00, 0x80, 
-  0x80, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x01, 
-  0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 
+  0x18, 0x10, 0x10, 0x18, 0x18, 0x10, 0x10, 0x18, 
   // 3
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0xe0, 0xb0, 
-  0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 
-  0x03, 0x06, 0x03, 0x01, 0x00, 0x00, 0x00, 0x00, 
+  0x00, 0x04, 0x0a, 0x18, 0x30, 0x40, 0x20, 0x00, 
   // 4
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xe0, 
-  0xa0, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x07, 
-  0x05, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+  0x00, 0x00, 0x00, 0xff, 0x99, 0x00, 0x00, 0x00, 
   // 5
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 
-  0xc0, 0x60, 0xc0, 0x80, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x07, 0x0d, 
-  0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+  0x00, 0x20, 0x50, 0x18, 0x0c, 0x02, 0x04, 0x00, 
   // 6
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x80, 0x80, 
-  0x80, 0x80, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x01, 
-  0x01, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 
+  0x18, 0x08, 0x08, 0x18, 0x18, 0x08, 0x08, 0x18, 
   // 7
-  0x00, 0x00, 0x00, 0x00, 0x80, 0xc0, 0x60, 0xc0, 
-  0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 
-  0x0d, 0x07, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 
+  0x00, 0x04, 0x02, 0x0c, 0x18, 0x50, 0x20, 0x00, 
 };
-
 
 
 
@@ -155,11 +120,6 @@ int8_t liney = SCREENHEIGHT  / 2;
 uint8_t xstarcoords[NUMBERSTARS];
 uint8_t ystarcoords[NUMBERSTARS];
 
-
-uint8_t grasstexturex[NUMGRASSPTS];
-uint8_t grasstexturey[NUMGRASSPTS];
-
-
 uint8_t ttcoordsx[NUMTREES];
 uint8_t ttcoordsy[NUMTREES];
 
@@ -169,6 +129,7 @@ int16_t lsdisty;
 
 bool iswarp = false;
 bool isonplanet = false;
+bool firedshot = false;
 
 bool terriangenerated = false;
 
@@ -232,9 +193,63 @@ void planets(void)
 
     }
 
+}
+
+
+void proceduraltrees(void)
+{
+
     
+    uint8_t xpos = 0;
+    uint8_t ypos = 0;
+
+
+    for (int i = 0; i < 32; i++) {
+
+        protree[i] = 0x00;
+
+    }
+
+
+    for (int b = 0; b < 3; b++) {
+
+        xpos = 8;
+        ypos = 15;
+
+        for (int i = 0; i < 10; i++) {
+
+            if (rand() % 3 == 0) {
+
+                if ((xpos - 1) < xpos) {
+
+                    xpos--;
+
+                }
+
+            } else if (rand() % 3 == 1) {
+
+                if ((xpos + 1) > xpos) {
+
+                    xpos++;
+
+                }
+
+            }
+
+            uint8_t bitindex = ypos * 16 + xpos;
+            uint8_t byteindex =  bitindex / 8;
+
+            protree[byteindex] |= (1 << (bitindex % 8));
+
+            ypos--;
+
+        }
+
+    }
 
 }
+
+
 
 void newStars(void)
 {
@@ -358,6 +373,22 @@ void crosshair(void)
 
 
 
+    if (arduboy.justPressed(B_BUTTON)) {
+
+        arduboy.drawLine(0, 0, linex, liney, WHITE);
+        arduboy.drawLine(128, 0, linex, liney, WHITE);
+        arduboy.drawLine(0, 64, linex, liney, WHITE);
+        arduboy.drawLine(128, 64, linex, liney, WHITE);
+
+        firedshot = true;
+
+    } else if (arduboy.justReleased(B_BUTTON)) {
+
+        firedshot = false;
+
+    }
+
+
 }
 
 
@@ -369,11 +400,11 @@ void randomttile(void)
 
     for (int i = 0; i < 32; i++) {
 
+        bits = 0;
+
         for (int j = 0; j < 8; j++) {
 
-            bits = 0;
-
-            if (rand() % 2 == 0) {
+            if (rand() % 64 == 0) {
 
                 bits |= (1 << (rand() % 8));
 
@@ -389,34 +420,19 @@ void randomttile(void)
 
 
 
+
 void randomttilecoords(void)
 {
 
 
-    for (int i = 0; i < NUMTTILES; i++) {
+    for (int i = 0; i < NUMTILEBYTES; i++) {
 
-        ttilex[i] = rand() % SCREENWIDTH;
-        ttiley[i] = rand() % SCREENHEIGHT;
+        ttilecoords[i] = (rand() % 256);
 
     }
 
 }
 
-
-
-void randomGrassTexture(void)
-{
-
-
-    for (int i = 0; i < NUMGRASSPTS; i++) {
-
-        grasstexturex[i] = rand() % SCREENWIDTH;
-        grasstexturey[i] = rand() % SCREENHEIGHT;
-
-    }
-
-
-}
 
 
 
@@ -583,7 +599,29 @@ void inSpace(void)
 
             canwarp = true;
 
-        }  
+        } 
+
+    }
+
+
+    if ((!canwarp) && firedshot) {
+
+        currplanet.radius = 80;
+        currplanet.x = 0;
+        currplanet.y = 0;
+
+        arduboy.fillScreen(WHITE);
+
+        arduboy.display();
+
+        arduboy.delayShort(500);
+
+        canwarp = true;
+
+        firedshot = false;
+
+        arduboy.digitalWriteRGB(RGB_OFF, RGB_OFF, RGB_OFF);
+
 
     }
 
@@ -645,7 +683,7 @@ void initLandingParty(void)
     currplanet = {255, 0, 0};
 
     linex = SCREENWIDTH / 2;
-    liney = SCREENHEIGHT / 2;
+    liney = (SCREENHEIGHT / 2) - 16;
 
 }
 
@@ -666,7 +704,8 @@ void onPlanet(void)
 
         randomttilecoords();
 
-        randomGrassTexture();
+        proceduraltrees();
+
         randomPlanetTerrain();
         terriangenerated = true;
 
@@ -678,36 +717,88 @@ void onPlanet(void)
 
 
 
-    for (uint8_t j = 0; j < NUMGRASSPTS; j++) {
-
-        arduboy.drawPixel(grasstexturex[j], grasstexturey[j], WHITE);
-
-    }
-
-
     // draw terrian tiles
     for (uint8_t i = 0; i < NUMTREES; i++) {
 
-        sprite.drawSelfMasked(ttcoordsx[i], ttcoordsy[i], tree, 0);
+
+        uint8_t txc = ttcoordsx[i];
+        uint8_t tyc = ttcoordsy[i];
+
+
+        int xx = 0;
+        int yy = 0;
+
+        for (int b = 0; b < 32; b++) {
+
+            uint8_t artbyte = protree[b];
+
+            for (int i = 0; i < 8; i++) {
+
+                if ((1 << i) & artbyte) {
+
+                    arduboy.drawPixel(txc + (xx), tyc + (yy), WHITE);
+
+                }
+
+                if (xx >= 16) {
+
+                    yy++;
+                    xx = 0;
+
+                }
+
+                xx++;
+
+            }
+
+        }
 
     }
 
 
-    // draw terrian tiles
-    for (uint8_t i = 0; i < NUMTTILES; i++) {
+    // // draw terrian tiles
+    uint8_t xx = 0;
+    uint8_t yy = 0;
 
-        uint8_t xt = ttilex[i];
-        uint8_t yt = ttiley[i];
+    // 8 tiles x
+    // 4 tiles y
 
-        for (uint8_t z = 0; z < 32; z++) {
+    for (uint8_t b = 0; b < NUMTILEBYTES; b++) {
 
-            uint8_t curtile = ttile[z];
+        uint8_t currtbyte = ttilecoords[b];
 
-            for (uint8_t c = 0; c < 8; c++) {
+        for (uint8_t c = 0; c < 8; c++) {
 
-                if ((1 << c) & (curtile)) {
+            uint8_t basex = c * 16;
+            uint8_t basey = b * 16;
 
-                    arduboy.drawPixel(xt + (z % 8), yt + c, WHITE);
+            uint8_t byteidx = 0;
+
+            uint8_t count = 0;
+
+            uint8_t pixelsbyte = 0;
+
+            if ((1 << c) & (currtbyte)) {
+
+                for (int hoz = 0; hoz < 16; hoz++) {
+
+                    for (int vert = 0; vert < 16; vert++) {
+
+                        if (count % 8 == 0) {
+
+                            pixelsbyte = ttile[byteidx++];
+
+                        }
+
+                        if ((1 << (count % 8)) & (pixelsbyte)) {
+
+                            arduboy.drawPixel(basex + hoz, basey + vert, WHITE);
+
+                        }
+
+                        count++;
+
+                    }
 
                 }
 
@@ -793,7 +884,6 @@ void onPlanet(void)
         
         randomttilecoords();
 
-        randomGrassTexture();
         randomPlanetTerrain();
 
 
@@ -811,7 +901,6 @@ void onPlanet(void)
 
         randomttilecoords();
 
-        randomGrassTexture();
         randomPlanetTerrain();
 
     } else if (up) {
@@ -828,7 +917,6 @@ void onPlanet(void)
 
         randomttilecoords();
 
-        randomGrassTexture();
         randomPlanetTerrain();
 
     } else if (down) {
@@ -845,7 +933,6 @@ void onPlanet(void)
 
         randomttilecoords();
 
-        randomGrassTexture();
         randomPlanetTerrain();
 
     }
@@ -882,7 +969,8 @@ void onPlanet(void)
         arduboy.digitalWriteRGB(RGB_OFF, RGB_OFF, RGB_OFF);
 
         srand(prevseedbackup);
-    }
+
+    } 
 
 }
 
