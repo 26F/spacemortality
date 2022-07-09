@@ -73,6 +73,7 @@ unsigned char ttile[] = {
 uint8_t ttilecoords[NUMTILEBYTES];
 
 uint8_t numwarpcrystals;
+uint8_t numammo = 0;
 
 
 // person
@@ -111,6 +112,24 @@ unsigned char const warpcrystals[] PROGMEM =
 
 
 
+
+// ammo
+unsigned char const ammosprite[] PROGMEM =
+{
+  16, 16,
+  // 0
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0xc0, 
+  0xc0, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x03, 0x07, 
+  0x07, 0x03, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 
+
+};
+
+
+
+
+
+
 // x y coordinates for croshair
 // note to save room we'll also 
 // use this for the person when exporing planets
@@ -133,6 +152,8 @@ bool firedshot = false;
 
 bool terriangenerated = false;
 
+bool itemcollected = false;
+
 bool gameover = false;
 
 unsigned int prevseed = 0;
@@ -141,6 +162,7 @@ unsigned int prevseedbackup = 0;
 uint8_t personspriteidx = 0;
 
 bool canwarp = true;
+bool statusscreen = false;
 
 // radius of 80 or larger means none type.
 typedef struct {
@@ -149,10 +171,17 @@ typedef struct {
     uint8_t x;
     uint8_t y;
 
+    bool habitable;
+
 } Planet;
 
 
-Planet currplanet = {80, 0, 0};
+// if not ammo, it's warp crystals.
+bool isammo = false;
+uint8_t itemcoordsxy[2];
+int8_t  itemmapcoords[2];
+
+Planet currplanet = {80, 0, 0, false};
 
 
 uint8_t planetsurftextx[NUMPLANETSURFACEPOINTS];
@@ -161,13 +190,19 @@ uint8_t planetsurftexty[NUMPLANETSURFACEPOINTS];
 void planets(void)
 {
 
-    uint8_t isthereplanet = (rand() % 3);
+    uint8_t isthereplanet = (rand() % 2);
 
     uint8_t used = 0;
 
     if (isthereplanet == 1) {
 
-        currplanet = {(rand() % 8) + 3, rand() % SCREENWIDTH, rand() % SCREENHEIGHT};
+        currplanet = {(rand() % 8) + 3, rand() % SCREENWIDTH, rand() % SCREENHEIGHT, false};
+
+        if (rand() % 2 == 0) {
+
+            currplanet.habitable = true;
+
+        }
 
         uint8_t tlcx = currplanet.x - (currplanet.radius);
         uint8_t brcy = currplanet.y - (currplanet.radius);
@@ -189,7 +224,7 @@ void planets(void)
 
     } else {
 
-        currplanet = {80, 0, 0};
+        currplanet = {80, 0, 0, false};
 
     }
 
@@ -251,6 +286,44 @@ void proceduraltrees(void)
 
 
 
+
+void placeItem(void)
+{
+
+
+    // position on screen
+    itemcoordsxy[0] = SCREENWIDTH / 2;
+    itemcoordsxy[1] = SCREENHEIGHT / 2;
+
+    if (rand() % 2 == 0) {
+
+        isammo = true;
+
+    } else {
+
+        isammo = false;
+
+    }
+
+    // position on planet
+    int8_t xpos = 0;
+    int8_t ypos = 0;
+
+    while (xpos == 0 && ypos == 0) {
+
+        xpos = (rand() % 10) * (1 - (2 * (rand() % 2)));
+        ypos = (rand() % 10) * (1 - (2 * (rand() % 2)));
+
+    }
+
+
+    itemmapcoords[0] = xpos;
+    itemmapcoords[1] = ypos;
+
+}
+
+
+
 void newStars(void)
 {
 
@@ -277,6 +350,9 @@ void setup()
     newStars();
 
     numwarpcrystals = 8;
+    numammo = 16;
+
+    arduboy.invert(false);
 
 }
 
@@ -338,10 +414,10 @@ void crosshair(void)
 {
 
     // horizontal
-    arduboy.drawLine(0, liney, 127, liney, WHITE);
+    arduboy.drawLine(linex - 4, liney, linex + 4, liney, WHITE);
 
     // vertical
-    arduboy.drawLine(linex, 0, linex, 63, WHITE);
+    arduboy.drawLine(linex, liney - 4, linex, liney + 4, WHITE);
 
 
     if (arduboy.pressed(LEFT_BUTTON) && (linex - 1) >= 0) {
@@ -373,7 +449,7 @@ void crosshair(void)
 
 
 
-    if (arduboy.justPressed(B_BUTTON)) {
+    if (arduboy.justPressed(B_BUTTON) && numammo > 0) {
 
         arduboy.drawLine(0, 0, linex, liney, WHITE);
         arduboy.drawLine(128, 0, linex, liney, WHITE);
@@ -381,6 +457,8 @@ void crosshair(void)
         arduboy.drawLine(128, 64, linex, liney, WHITE);
 
         firedshot = true;
+
+        numammo--;
 
     } else if (arduboy.justReleased(B_BUTTON)) {
 
@@ -415,6 +493,41 @@ void randomttile(void)
         ttile[i] = bits;
 
     }
+
+}
+
+
+
+
+void statusReport(void)
+{
+
+    arduboy.clear();
+    arduboy.invert(false);
+
+    arduboy.setCursor(0, 0);
+    arduboy.print("Warp: ");
+    arduboy.setCursor(40, 0);
+    arduboy.print(numwarpcrystals);
+
+    arduboy.setCursor(0, 8);
+    arduboy.print("Ammo: ");
+    arduboy.setCursor(40, 8);
+    arduboy.print(numammo);
+
+    arduboy.setCursor(0, 16);
+    arduboy.print("Return to ship");
+
+    arduboy.setCursor(0, 24);
+    arduboy.print("Press B");
+
+    if (arduboy.justPressed(B_BUTTON)) {
+
+        arduboy.invert(true);
+        statusscreen = false;
+
+    }
+
 
 }
 
@@ -593,6 +706,13 @@ void inSpace(void)
 
             canwarp = false;
 
+            if (!(currplanet.habitable)) {
+
+                arduboy.setCursor(0, 56);
+                arduboy.print("uninhabitable");
+
+            }
+
         } else {
 
             arduboy.digitalWriteRGB(RGB_OFF, RGB_OFF, RGB_OFF);
@@ -627,9 +747,14 @@ void inSpace(void)
 
 
     arduboy.setCursor(0, 0);
-    arduboy.print("Warp core: ");
-    arduboy.setCursor(60, 0);
+    arduboy.print("Warp: ");
+    arduboy.setCursor(35, 0);
     arduboy.print(numwarpcrystals);
+
+    arduboy.setCursor(60, 0);
+    arduboy.print("Ammo: ");
+    arduboy.setCursor(95, 0);
+    arduboy.print(numammo);
 
 
 }
@@ -688,8 +813,6 @@ void initLandingParty(void)
 }
 
 
-
-
 void onPlanet(void)
 {
 
@@ -701,6 +824,10 @@ void onPlanet(void)
         lsdisty = 0;
 
         randomttile();
+
+        placeItem();
+
+        itemcollected = false;
 
         randomttilecoords();
 
@@ -807,6 +934,24 @@ void onPlanet(void)
         }
 
     }
+
+
+    if (!(itemcollected)) {
+
+            arduboy.setCursor(0,0);
+            arduboy.print("Item at: ");
+            arduboy.setCursor(50, 0);
+
+            int8_t xloc = itemmapcoords[0];
+            int8_t yloc = itemmapcoords[1];
+
+            arduboy.print(xloc);
+            arduboy.setCursor(65, 0);
+            arduboy.print(yloc);
+
+    }
+
+
 
 
     bool left = false;
@@ -956,6 +1101,33 @@ void onPlanet(void)
 
         }
 
+    } else if (lsdistx == itemmapcoords[0] && lsdisty == itemmapcoords[1]) { 
+
+        if (!(itemcollected)) {
+
+                uint8_t offset = 8;
+
+                sprite.drawSelfMasked(itemcoordsxy[0] - offset, itemcoordsxy[1] - offset, (isammo) ? ammosprite : warpcrystals, 0);
+
+                if (distance((float)linex, 
+                             (float)liney, 
+                             (float)(itemcoordsxy[0] - offset  + 8), 
+                             (float)(itemcoordsxy[1] - offset) + 8) < 5.0) {
+
+                    (isammo) ? numammo += 4 : numwarpcrystals += 4;
+
+                    itemcollected = true;
+                    statusscreen = true;
+
+                    arduboy.setCursor(0, 0);
+                    arduboy.print((isammo) ? "+1 Ammo" : "+1 Warp");
+
+                }
+
+        }
+
+
+
     }
 
     if (isnearship && arduboy.pressed(A_BUTTON)) {
@@ -965,6 +1137,8 @@ void onPlanet(void)
         iswarp = true;
         canwarp = true;
         isonplanet = false;
+
+        numwarpcrystals--;
 
         arduboy.digitalWriteRGB(RGB_OFF, RGB_OFF, RGB_OFF);
 
@@ -989,7 +1163,7 @@ void loop()
 
     arduboy.clear();
 
-    if (!(isonplanet) && !(gameover)) {
+    if (!(isonplanet) && !(gameover) && !(statusscreen)) {
 
         inSpace();    
 
@@ -999,7 +1173,7 @@ void loop()
     arduboy.pollButtons();
 
 
-    if (!(gameover)) {
+    if (!(gameover) && !(statusscreen)) {
 
 
             // warpdrive
@@ -1014,8 +1188,13 @@ void loop()
 
             } else if (numwarpcrystals >= 0 && (!canwarp) && currplanet.radius < 80) {
 
-                terriangenerated = false;
-                initLandingParty();
+                if (currplanet.habitable) {
+
+                    terriangenerated = false;
+                    initLandingParty();
+
+                } 
+                
 
             } else {
 
@@ -1060,17 +1239,20 @@ void loop()
             arduboy.setCursor(0, 56);
             arduboy.print(lsdistx);
 
-            arduboy.setCursor(15, 56);
+            arduboy.setCursor(20, 56);
             arduboy.print(lsdisty);
 
         }
 
-    } else {
+    } else if (!(statusscreen)) {
 
         arduboy.clear();
 
         arduboy.print("Game Over");
 
+    } else {
+
+        statusReport();
     }
 
     
