@@ -6,14 +6,21 @@
 #define SCREENWIDTH 128
 #define SCREENHEIGHT 64
 
+#define SPWNESX SCREENWIDTH - 16
+#define SPWNESY SCREENHEIGHT - 16
+
 #define NUMWARPEFFECTFRAMES 240
 #define NUMPLANETSURFACEPOINTS 25
 
 #define SHIPXPOS (SCREENWIDTH / 2) - 16
 #define SHIPYPOS (SCREENHEIGHT / 2) - 16
 
+#define NUMENEMYSHIPS 4
 
-#define NUMTREES 2
+#define KILLALLCOUNT 140
+
+
+#define NUMTREES 3
 #define NUMTILEBYTES 4
 
 Arduboy2 arduboy;
@@ -72,8 +79,31 @@ unsigned char ttile[] = {
 
 uint8_t ttilecoords[NUMTILEBYTES];
 
+
+
+typedef struct {
+
+    bool alive;
+    uint8_t x;
+    uint8_t y;
+
+} EnemyShip;
+
+
+EnemyShip enemyships[NUMENEMYSHIPS];
+
+
 uint8_t numwarpcrystals;
 uint8_t numammo = 0;
+
+uint16_t numwarps = 0;
+uint16_t numlandings = 0;
+uint16_t numitemscollect = 0;
+uint16_t numblackholesenc = 0;
+uint16_t shipsdestroyed = 0;
+
+uint8_t shipskilledcount = 0;
+uint8_t killallby = KILLALLCOUNT;
 
 
 // person
@@ -128,6 +158,18 @@ unsigned char const ammosprite[] PROGMEM =
 
 
 
+// enemyship
+unsigned char const enemyn[] PROGMEM =
+{
+  16, 16,
+  // 0
+  0x00, 0x0c, 0x0e, 0x1e, 0x18, 0xf0, 0x38, 0x18, 
+  0x38, 0xf0, 0x18, 0x1e, 0x0e, 0x0c, 0x00, 0x00, 
+  0x00, 0x0c, 0x1c, 0x1c, 0x06, 0x03, 0x03, 0x02, 
+  0x03, 0x03, 0x06, 0x1c, 0x1c, 0x0c, 0x00, 0x00, 
+};
+
+
 
 
 // x y coordinates for croshair
@@ -142,6 +184,9 @@ uint8_t ystarcoords[NUMBERSTARS];
 uint8_t ttcoordsx[NUMTREES];
 uint8_t ttcoordsy[NUMTREES];
 
+uint8_t blackhole = false;
+uint8_t blackholesize = 10;
+
 // distance from landing site
 int16_t lsdistx;
 int16_t lsdisty;
@@ -153,6 +198,12 @@ bool firedshot = false;
 bool terriangenerated = false;
 
 bool itemcollected = false;
+
+bool startedwalking = false;
+
+uint16_t numdestroyedplanets = 0;
+
+bool hostilespace = false;
 
 bool gameover = false;
 
@@ -186,6 +237,135 @@ Planet currplanet = {80, 0, 0, false};
 
 uint8_t planetsurftextx[NUMPLANETSURFACEPOINTS];
 uint8_t planetsurftexty[NUMPLANETSURFACEPOINTS];
+
+
+
+void resetAll(void)
+{
+
+    numwarpcrystals = 8;
+    numammo = 16;
+
+    linex = SCREENWIDTH / 2;
+    liney = SCREENHEIGHT  / 2;
+
+    blackhole = false;
+    blackholesize = 10;  
+
+
+    lsdistx = 0;
+    lsdisty = 0;
+
+    iswarp = false;
+    isonplanet = false;
+    firedshot = false;
+
+    terriangenerated = false;
+
+    itemcollected = false;
+
+    gameover = false;
+
+    prevseed = 0;
+    prevseedbackup = 0;
+
+    personspriteidx = 0;
+
+    canwarp = true;
+    statusscreen = false;
+
+    isammo = false;
+
+    currplanet = {80, 0, 0, false};
+
+    numwarps = 0;
+    numlandings = 0;
+    numitemscollect = 0;
+    numblackholesenc = 0;
+
+    numdestroyedplanets = 0;
+
+    hostilespace = false;
+
+    startedwalking = false;
+
+    shipsdestroyed = 0;
+
+    shipskilledcount = 0;
+
+    killallby = KILLALLCOUNT;
+
+}
+
+
+
+
+void enemyShips(void)
+{
+
+
+    if (rand() % 2 == 0) {
+
+        hostilespace = true;
+        shipskilledcount = 0;
+        killallby = KILLALLCOUNT;
+
+    } else {
+
+        hostilespace =  false;
+
+    }
+
+
+    if (hostilespace) {
+
+        for (int i = 0; i < NUMENEMYSHIPS; i++) {
+
+            enemyships[i].alive = true;
+            enemyships[i].x = (rand() % (SPWNESX));
+            enemyships[i].y = (rand() % (SPWNESY));
+
+        }
+
+    } else {
+
+        for (int i = 0; i < NUMENEMYSHIPS; i++) {
+
+            enemyships[i].alive = false;
+
+        }
+
+    }
+
+}
+
+
+
+void blackholes(void)
+{
+
+
+    if (currplanet.radius >= 80) {
+
+        // stupidly rare
+        if ((rand() % 50) == 0 && (rand() % 50) == 1) {
+
+            blackhole = true;
+
+        } else {
+
+            blackhole = false;
+
+        }
+
+    } else {
+
+        blackhole = false;
+    }
+
+}
+
+
 
 void planets(void)
 {
@@ -311,8 +491,8 @@ void placeItem(void)
 
     while (xpos == 0 && ypos == 0) {
 
-        xpos = (rand() % 10) * (1 - (2 * (rand() % 2)));
-        ypos = (rand() % 10) * (1 - (2 * (rand() % 2)));
+        xpos = (rand() % 5) * (1 - (2 * (rand() % 2)));
+        ypos = (rand() % 5) * (1 - (2 * (rand() % 2)));
 
     }
 
@@ -380,6 +560,8 @@ void drawStars(void)
 
 void warpEffect(void)
 {
+
+    numwarps++;
 
     for (int i = 0; i < NUMWARPEFFECTFRAMES; i++) {
 
@@ -699,6 +881,9 @@ void inSpace(void)
 
         }
 
+
+       
+
         if (distance(currplanet.x, currplanet.y, (uint8_t)linex, (uint8_t)liney) <= (float)(currplanet.radius) &&
             (currplanet.radius < 80)) {
 
@@ -721,6 +906,94 @@ void inSpace(void)
 
         } 
 
+    } else if (blackhole) {
+
+        numblackholesenc++;
+
+
+        arduboy.fillCircle(SCREENWIDTH / 2, SCREENHEIGHT / 2, blackholesize, BLACK);
+
+        if (arduboy.everyXFrames(2)) {
+
+            blackholesize++;
+
+        }
+
+        if (blackholesize > 60) {
+
+            gameover = true;
+
+        }
+
+
+        arduboy.setCursor(0, 56);
+        arduboy.print("Black Hole");
+
+        if (blackholesize % 2 == 0) {
+
+            arduboy.digitalWriteRGB(RGB_ON, RGB_OFF, RGB_OFF);
+
+        } else {
+
+            arduboy.digitalWriteRGB(RGB_OFF, RGB_OFF, RGB_OFF);
+
+        }
+
+    }
+
+
+    if (hostilespace) {
+
+
+        for (int i = 0; i < NUMENEMYSHIPS; i++) {
+
+            if (enemyships[i].alive) {
+
+                sprite.drawSelfMasked(enemyships[i].x, enemyships[i].y, enemyn, 0);
+
+                // arduboy.drawCircle(enemyships[i].x + 8, enemyships[i].y + 8, 8);
+
+                // arduboy.drawLine(enemyships[i].x - 5 + 8, enemyships[i].y + 8, enemyships[i].x + 5 + 8, enemyships[i].y + 8);
+
+                // arduboy.drawLine(enemyships[i].x + 8, enemyships[i].y - 5 + 8, enemyships[i].x + 8, enemyships[i].y + 5 + 8);
+
+            
+                if (firedshot && distance((float)enemyships[i].x + 8, (float)enemyships[i].y + 8, (float) linex, (float) liney) <= 10.0) {
+
+                    enemyships[i].alive = false;
+                    shipskilledcount++;
+                    shipsdestroyed++;
+
+                    if (shipskilledcount == NUMENEMYSHIPS) {
+
+                        hostilespace = false;
+                        killallby = KILLALLCOUNT;
+
+                    }
+
+                }
+
+            }
+
+        }
+
+        if (arduboy.everyXFrames(2)) {
+
+            killallby--;
+
+        }
+
+
+
+        if (killallby == 0) {
+
+            gameover = true;
+
+        }
+
+        arduboy.setCursor(0, 56);
+        arduboy.print(killallby);
+
     }
 
 
@@ -729,6 +1002,8 @@ void inSpace(void)
         currplanet.radius = 80;
         currplanet.x = 0;
         currplanet.y = 0;
+
+        numdestroyedplanets++;
 
         arduboy.fillScreen(WHITE);
 
@@ -784,6 +1059,12 @@ void warp(void)
 
     planets();
 
+    blackholes();
+
+    enemyShips();
+
+
+
 }
 
 
@@ -802,7 +1083,7 @@ void initLandingParty(void)
 
     isonplanet = true;
 
-
+    numlandings++;
 
     // e.g no planets.
     currplanet = {255, 0, 0};
@@ -822,6 +1103,8 @@ void onPlanet(void)
 
         lsdistx = 0;
         lsdisty = 0;
+
+        startedwalking = false;
 
         randomttile();
 
@@ -936,7 +1219,7 @@ void onPlanet(void)
     }
 
 
-    if (!(itemcollected)) {
+    if (!(itemcollected) && startedwalking == false) {
 
             arduboy.setCursor(0,0);
             arduboy.print("Item at: ");
@@ -948,7 +1231,6 @@ void onPlanet(void)
             arduboy.print(xloc);
             arduboy.setCursor(65, 0);
             arduboy.print(yloc);
-
     }
 
 
@@ -967,12 +1249,16 @@ void onPlanet(void)
         left = leftclamp(&linex);
         down = downclamp(&liney);
 
+        startedwalking = true;
+
     } else if (arduboy.pressed(LEFT_BUTTON) && arduboy.pressed(DOWN_BUTTON)) {
 
         personspriteidx = 7;
 
         left = leftclamp(&linex);
         up = upclamp(&liney);
+
+        startedwalking = true;
     
     } else if (arduboy.pressed(UP_BUTTON) && arduboy.pressed(RIGHT_BUTTON)) {
 
@@ -981,12 +1267,16 @@ void onPlanet(void)
         down = downclamp(&liney);
         right = rightclamp(&linex);
 
+        startedwalking = true;
+
     } else if (arduboy.pressed(DOWN_BUTTON) && arduboy.pressed(RIGHT_BUTTON)) {
 
         personspriteidx = 5;
 
         up = upclamp(&liney);
         right = rightclamp(&linex);
+
+        startedwalking = true;
     
     } else if (arduboy.pressed(LEFT_BUTTON)) {
 
@@ -994,11 +1284,15 @@ void onPlanet(void)
 
         left = leftclamp(&linex);
 
+        startedwalking = true;
+
     } else if (arduboy.pressed(RIGHT_BUTTON)) {
 
         personspriteidx = 4;
 
         right = rightclamp(&linex);
+
+        startedwalking = true;
 
     } else if (arduboy.pressed(UP_BUTTON)) {
 
@@ -1006,11 +1300,15 @@ void onPlanet(void)
 
         down = downclamp(&liney);
 
+        startedwalking = true;
+
     } else if (arduboy.pressed(DOWN_BUTTON)) {
 
         personspriteidx = 6;
 
         up = upclamp(&liney);
+
+        startedwalking = true;
 
     }
 
@@ -1119,6 +1417,8 @@ void onPlanet(void)
                     itemcollected = true;
                     statusscreen = true;
 
+                    numitemscollect++;
+
                     arduboy.setCursor(0, 0);
                     arduboy.print((isammo) ? "+1 Ammo" : "+1 Warp");
 
@@ -1180,15 +1480,15 @@ void loop()
         if (arduboy.justPressed(A_BUTTON) && (!(iswarp)) && (!(isonplanet))) {
 
 
-            if (canwarp && numwarpcrystals > 0) {
+            if (canwarp && numwarpcrystals > 0 && !(blackhole)) {
 
                 numwarpcrystals--;
 
                 initWarp();
 
-            } else if (numwarpcrystals >= 0 && (!canwarp) && currplanet.radius < 80) {
+            } else if ((!canwarp) && currplanet.radius < 80) {
 
-                if (currplanet.habitable) {
+                if (currplanet.habitable && !(hostilespace)) {
 
                     terriangenerated = false;
                     initLandingParty();
@@ -1198,7 +1498,7 @@ void loop()
 
             } else {
 
-                if (currplanet.radius >= 80) {
+                if (currplanet.radius >= 80 || currplanet.habitable == false) {
 
                     gameover = true;
 
@@ -1213,13 +1513,13 @@ void loop()
 
             crosshair();
 
-        } else if (iswarp && !(gameover)) {
+        } else if (iswarp && !(gameover) && !(blackhole)) {
 
             warp();
 
             return ;
 
-        } else if (!(gameover)) {
+        } else if (!(gameover) && !(blackhole)) {
 
             // landing party stuff here
             onPlanet();
@@ -1248,7 +1548,35 @@ void loop()
 
         arduboy.clear();
 
+        arduboy.setCursor(48, 0);
         arduboy.print("Game Over");
+
+        arduboy.setCursor(0, 8);
+        arduboy.print("Planets Destroyed: ");
+        arduboy.setCursor(110, 8);
+        arduboy.print(numdestroyedplanets);
+
+        arduboy.setCursor(0, 16);
+        arduboy.print("Warps: ");
+        arduboy.setCursor(40, 16);
+        arduboy.print(numwarps);
+
+        arduboy.setCursor(0, 24);
+        arduboy.print("Planets visited: ");
+        arduboy.setCursor(100, 24);
+        arduboy.print(numlandings);
+
+        arduboy.setCursor(0, 32);
+        arduboy.print("items collected: ");
+        arduboy.setCursor(100, 32);
+        arduboy.print(numitemscollect);
+
+        arduboy.setCursor(0, 40);
+        arduboy.print("Enemy Ship kills: ");
+        arduboy.setCursor(110, 40);
+        arduboy.print(shipsdestroyed);
+
+
 
     } else {
 
